@@ -31,8 +31,8 @@ class NewsletterRead(NewsletterBase):
     updated_at: datetime
 
 
-class NewsletterUpdate(SQLModel):
-    edited_content: Optional[str] = None
+class NewsletterUpdate(NewsletterBase):
+    pass
 
 
 class PromptRequest(BaseModel):

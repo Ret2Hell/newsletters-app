@@ -55,11 +55,11 @@ class NewsletterGenerator:
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a newsletter content generator. Create professional and engaging newsletter content.",
+                        "content": "You are a newsletter content generator. Create professional and engaging newsletter content in HTML format. Include appropriate HTML tags such as <h1>, <h2>, <p>, <ul>, <li>, etc. Make sure the output is well-formatted HTML that can be directly displayed in a web browser. Include a title for the newsletter wrapped in <h1> tags at the top.",
                     },
                     {
                         "role": "user",
-                        "content": f"Generate a newsletter based on this prompt: {prompt}",
+                        "content": f"Generate a newsletter based on this prompt: {prompt}. Return only the HTML content without any explanation or markdown format.",
                     },
                 ],
                 temperature=0.7,

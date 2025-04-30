@@ -87,30 +87,30 @@ export const api = createApi({
       }),
       providesTags: ["Newsletter"],
     }),
-    getNewsletter: builder.query({
-      query: (id: string) => `/${id}`,
-      providesTags: (result, error, id) => [{ type: "Newsletter", id }],
-    }),
     updateNewsletter: builder.mutation({
       query: ({
         id,
+        prompt,
+        generated_content,
         edited_content,
       }: {
         id: string;
+        prompt: string;
+        generated_content: string;
         edited_content: string;
       }) => ({
         url: `/newsletters/${id}`,
         method: "PATCH",
-        body: { edited_content },
+        body: { prompt, generated_content, edited_content },
       }),
-      invalidatesTags: (result, error, { id }) => [{ type: "Newsletter", id }],
+      invalidatesTags: ["Newsletter"],
     }),
     deleteNewsletter: builder.mutation({
       query: (id: string) => ({
         url: `/newsletters/${id}`,
         method: "DELETE",
       }),
-      invalidatesTags: (result, error, id) => [{ type: "Newsletter", id }],
+      invalidatesTags: ["Newsletter"],
     }),
   }),
 });
@@ -119,7 +119,6 @@ export const {
   useGenerateContentMutation,
   useCreateNewsletterMutation,
   useGetNewslettersQuery,
-  useGetNewsletterQuery,
   useUpdateNewsletterMutation,
   useDeleteNewsletterMutation,
 } = api;
