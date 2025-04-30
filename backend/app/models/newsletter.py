@@ -2,10 +2,9 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID, uuid4
 
+from app.utils import get_utc_now
 from pydantic import BaseModel
 from sqlmodel import Field, SQLModel
-
-from app.utils import get_utc_now
 
 
 class NewsletterBase(SQLModel):

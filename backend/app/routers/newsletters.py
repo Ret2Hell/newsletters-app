@@ -2,18 +2,24 @@ from typing import List
 from uuid import UUID
 
 from app.database import get_session
-from app.models import (
-    Newsletter,
+from app.models.newsletter import (
     NewsletterCreate,
     NewsletterRead,
     NewsletterUpdate,
     PromptRequest,
 )
+from app.repositories.newsletter import NewsletterRepository
 from app.services.newsletter_generator import NewsletterGenerator
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 router = APIRouter(prefix="/newsletters", tags=["newsletters"])
+
+
+def get_newsletter_repository(
+    session: Session = Depends(get_session),
+) -> NewsletterRepository:
+    return NewsletterRepository(session)
 
 
 @router.post("/generate", status_code=status.HTTP_200_OK)
@@ -30,7 +36,6 @@ def generate_content(*, request: PromptRequest):
                 detail="Please check your API key.",
             )
         elif "rate limit" in error_message.lower():
-            # Handle rate limiting
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="Rate limit exceeded. Please try again later.",
@@ -49,26 +54,30 @@ def generate_content(*, request: PromptRequest):
 
 @router.post("/", response_model=NewsletterRead, status_code=status.HTTP_201_CREATED)
 def create_newsletter(
-    *, session: Session = Depends(get_session), newsletter: NewsletterCreate
+    *,
+    newsletter: NewsletterCreate,
+    repo: NewsletterRepository = Depends(get_newsletter_repository),
 ):
-    db_newsletter = Newsletter.model_validate(newsletter)
-    session.add(db_newsletter)
-    session.commit()
-    session.refresh(db_newsletter)
-    return db_newsletter
+    return repo.create_newsletter(newsletter)
 
 
 @router.get("/", response_model=List[NewsletterRead])
 def get_newsletters(
-    *, session: Session = Depends(get_session), skip: int = 0, limit: int = 10
+    *,
+    skip: int = 0,
+    limit: int = 10,
+    repo: NewsletterRepository = Depends(get_newsletter_repository),
 ):
-    newsletters = session.exec(select(Newsletter).offset(skip).limit(limit)).all()
-    return newsletters
+    return repo.get_newsletters(skip, limit)
 
 
 @router.get("/{newsletter_id}", response_model=NewsletterRead)
-def get_newsletter(*, session: Session = Depends(get_session), newsletter_id: UUID):
-    newsletter = session.get(Newsletter, newsletter_id)
+def get_newsletter(
+    *,
+    newsletter_id: UUID,
+    repo: NewsletterRepository = Depends(get_newsletter_repository),
+):
+    newsletter = repo.get_newsletter(newsletter_id)
     if not newsletter:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Newsletter not found"
@@ -79,34 +88,26 @@ def get_newsletter(*, session: Session = Depends(get_session), newsletter_id: UU
 @router.patch("/{newsletter_id}", response_model=NewsletterRead)
 def update_newsletter(
     *,
-    session: Session = Depends(get_session),
     newsletter_id: UUID,
     newsletter_update: NewsletterUpdate,
+    repo: NewsletterRepository = Depends(get_newsletter_repository),
 ):
-    db_newsletter = session.get(Newsletter, newsletter_id)
-    if not db_newsletter:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Newsletter not found"
-        )
-
-    update_data = newsletter_update.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(db_newsletter, key, value)
-
-    session.add(db_newsletter)
-    session.commit()
-    session.refresh(db_newsletter)
-    return db_newsletter
-
-
-@router.delete("/{newsletter_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_newsletter(*, session: Session = Depends(get_session), newsletter_id: UUID):
-    newsletter = session.get(Newsletter, newsletter_id)
+    newsletter = repo.update_newsletter(newsletter_id, newsletter_update)
     if not newsletter:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Newsletter not found"
         )
+    return newsletter
 
-    session.delete(newsletter)
-    session.commit()
+
+@router.delete("/{newsletter_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_newsletter(
+    *,
+    newsletter_id: UUID,
+    repo: NewsletterRepository = Depends(get_newsletter_repository),
+):
+    if not repo.delete_newsletter(newsletter_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Newsletter not found"
+        )
     return None
