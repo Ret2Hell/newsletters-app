@@ -1,9 +1,6 @@
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session, select
-
 from app.database import get_session
 from app.models import (
     Newsletter,
@@ -13,15 +10,41 @@ from app.models import (
     PromptRequest,
 )
 from app.services.newsletter_generator import NewsletterGenerator
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlmodel import Session, select
 
 router = APIRouter(prefix="/newsletters", tags=["newsletters"])
 
 
-@router.post("/generate/", status_code=status.HTTP_200_OK)
+@router.post("/generate", status_code=status.HTTP_200_OK)
 def generate_content(*, request: PromptRequest):
-    ai_service = NewsletterGenerator()
-    generated_content = ai_service.generate_content(request.prompt)
-    return {"prompt": request.prompt, "generated_content": generated_content}
+    try:
+        ai_service = NewsletterGenerator()
+        generated_content = ai_service.generate_content(request.prompt)
+        return {"prompt": request.prompt, "generated_content": generated_content}
+    except Exception as e:
+        error_message = str(e)
+        if "api_key" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Please check your API key.",
+            )
+        elif "rate limit" in error_message.lower():
+            # Handle rate limiting
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Rate limit exceeded. Please try again later.",
+            )
+        elif "timeout" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                detail="Request timed out. Please try again later.",
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to generate newsletter content: {error_message}",
+            )
 
 
 @router.post("/", response_model=NewsletterRead, status_code=status.HTTP_201_CREATED)
@@ -58,7 +81,7 @@ def update_newsletter(
     *,
     session: Session = Depends(get_session),
     newsletter_id: UUID,
-    newsletter_update: NewsletterUpdate
+    newsletter_update: NewsletterUpdate,
 ):
     db_newsletter = session.get(Newsletter, newsletter_id)
     if not db_newsletter:

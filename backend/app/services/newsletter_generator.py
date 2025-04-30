@@ -1,15 +1,20 @@
-import os
+import logging
 
-import groq
+from app.config import settings
+from groq import Client, GroqError
+
+logger = logging.getLogger(__name__)
 
 
 class NewsletterGenerator:
     def __init__(self):
-        api_key = os.getenv("GROQ_API_KEY")
-        if not api_key:
-            raise ValueError("GROQ_API_KEY environment variable is not set")
-        self.client = groq.Client(api_key=api_key)
-        self.model = os.getenv("GROQ_MODEL", "gemma2-9b-it")
+        try:
+            self.client = Client(api_key=settings.GROQ_API_KEY)
+            self.model = settings.GROQ_MODEL
+            logger.info(f"Newsletter generator initialized with model: {self.model}")
+        except Exception as e:
+            logger.error(f"Failed to initialize newsletter generator: {e}")
+            raise
 
     def generate_content(self, prompt: str) -> str:
         try:
@@ -29,5 +34,9 @@ class NewsletterGenerator:
                 max_tokens=1024,
             )
             return response.choices[0].message.content.strip()
+        except GroqError as e:
+            logger.error(f"Groq API error: {e}")
+            raise
         except Exception as e:
-            return f"Error generating content: {str(e)}"
+            logger.error(f"Failed to generate content: {e}")
+            raise

@@ -1,23 +1,36 @@
-import os
+import logging
 
-from dotenv import load_dotenv
+from app.config import settings
 from sqlmodel import Session, SQLModel, create_engine
 
-load_dotenv()
+logger = logging.getLogger(__name__)
 
-DATABASE_URL = os.getenv("DATABASE_URL")
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    echo=True,
-)
+try:
+    engine = create_engine(
+        settings.DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        echo=True,
+    )
+except Exception as e:
+    logger.error(f"Failed to create database engine: {e}")
+    raise
 
 
 def create_db_and_tables():
-    SQLModel.metadata.create_all(engine)
+    try:
+        SQLModel.metadata.create_all(engine)
+        logger.info("Database tables created successfully")
+    except Exception as e:
+        logger.error(f"Failed to create database tables: {e}")
+        raise
 
 
 def get_session():
     with Session(engine) as session:
-        yield session
+        try:
+            yield session
+        except Exception as e:
+            logger.error(f"Session error: {e}")
+            session.rollback()
+            raise
