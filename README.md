@@ -1,7 +1,3 @@
-Collecting workspace information# Newsletters App Setup Guide
-
-This README explains how to set up and run both the backend (Python/FastAPI) and frontend (Next.js) parts of the Newsletters application.
-
 ## Project Structure
 
 ```
