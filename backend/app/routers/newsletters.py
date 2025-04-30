@@ -8,6 +8,7 @@ from app.models.newsletter import (
     NewsletterUpdate,
     PromptRequest,
 )
+from app.models.response import SuccessResponse
 from app.repositories.newsletter import NewsletterRepository
 from app.services.newsletter_generator import NewsletterGenerator
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -22,12 +23,17 @@ def get_newsletter_repository(
     return NewsletterRepository(session)
 
 
-@router.post("/generate", status_code=status.HTTP_200_OK)
+@router.post(
+    "/generate", status_code=status.HTTP_200_OK, response_model=SuccessResponse
+)
 def generate_content(*, request: PromptRequest):
     try:
         ai_service = NewsletterGenerator()
         generated_content = ai_service.generate_content(request.prompt)
-        return {"prompt": request.prompt, "generated_content": generated_content}
+        return SuccessResponse(
+            message="Content generated successfully",
+            data={"prompt": request.prompt, "generated_content": generated_content},
+        )
     except Exception as e:
         error_message = str(e)
         if "api_key" in error_message.lower():
@@ -52,26 +58,34 @@ def generate_content(*, request: PromptRequest):
             )
 
 
-@router.post("/", response_model=NewsletterRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=SuccessResponse[NewsletterRead],
+    status_code=status.HTTP_201_CREATED,
+)
 def create_newsletter(
     *,
     newsletter: NewsletterCreate,
     repo: NewsletterRepository = Depends(get_newsletter_repository),
 ):
-    return repo.create_newsletter(newsletter)
+    created = repo.create_newsletter(newsletter)
+    return SuccessResponse(message="Newsletter created successfully", data=created)
 
 
-@router.get("/", response_model=List[NewsletterRead])
+@router.get("/", response_model=SuccessResponse[List[NewsletterRead]])
 def get_newsletters(
     *,
     skip: int = 0,
     limit: int = 10,
     repo: NewsletterRepository = Depends(get_newsletter_repository),
 ):
-    return repo.get_newsletters(skip, limit)
+    newsletters = repo.get_newsletters(skip, limit)
+    return SuccessResponse(
+        message="Newsletters retrieved successfully", data=newsletters
+    )
 
 
-@router.get("/{newsletter_id}", response_model=NewsletterRead)
+@router.get("/{newsletter_id}", response_model=SuccessResponse[NewsletterRead])
 def get_newsletter(
     *,
     newsletter_id: UUID,
@@ -82,10 +96,10 @@ def get_newsletter(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Newsletter not found"
         )
-    return newsletter
+    return SuccessResponse(message="Newsletter retrieved successfully", data=newsletter)
 
 
-@router.patch("/{newsletter_id}", response_model=NewsletterRead)
+@router.patch("/{newsletter_id}", response_model=SuccessResponse[NewsletterRead])
 def update_newsletter(
     *,
     newsletter_id: UUID,
@@ -97,10 +111,12 @@ def update_newsletter(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Newsletter not found"
         )
-    return newsletter
+    return SuccessResponse(message="Newsletter updated successfully", data=newsletter)
 
 
-@router.delete("/{newsletter_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{newsletter_id}", status_code=status.HTTP_200_OK, response_model=SuccessResponse
+)
 def delete_newsletter(
     *,
     newsletter_id: UUID,
@@ -110,4 +126,4 @@ def delete_newsletter(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Newsletter not found"
         )
-    return None
+    return SuccessResponse(message="Newsletter deleted successfully", data={})
